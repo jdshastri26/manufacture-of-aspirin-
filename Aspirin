@@ -1,0 +1,151 @@
+
+
+
+
+
+# refined_aspirin_manufacture.py
+
+from typing import List, Dict
+import json
+
+
+class AspirinManufacture:
+    def __init__(self, salicylic_acid: float, acetic_anhydride: float, catalyst_efficiency: float):
+        """
+        Initialize the aspirin manufacturing process parameters.
+
+        :param salicylic_acid: Salicylic acid feed (grams)
+        :param acetic_anhydride: Acetic anhydride feed (grams)
+        :param catalyst_efficiency: Catalyst efficiency (%)
+        """
+        self.salicylic_acid = salicylic_acid
+        self.acetic_anhydride = acetic_anhydride
+        self.catalyst_efficiency = catalyst_efficiency
+
+        # Reaction constants
+        self.salicylic_acid_molar_mass = 138.12  # g/mol
+        self.acetic_anhydride_molar_mass = 102.09  # g/mol
+        self.aspirin_molar_mass = 180.16  # g/mol
+        self.acetic_acid_molar_mass = 60.05  # g/mol
+
+    def validate_inputs(self):
+        """
+        Validates inputs to ensure they are within realistic and non-negative ranges.
+        """
+        if self.salicylic_acid <= 0 or self.acetic_anhydride <= 0:
+            raise ValueError("Feed quantities must be greater than 0.")
+        if not (0 < self.catalyst_efficiency <= 100):
+            raise ValueError("Catalyst efficiency must be between 0 and 100%.")
+
+    def calculate_yield(self) -> Dict[str, float]:
+        """
+        Calculates the reaction stoichiometry, product yield, and byproducts.
+
+        :return: Dictionary containing aspirin yield, unreacted materials, and byproduct quantities.
+        """
+        # Convert reactant masses to moles
+        salicylic_acid_moles = self.salicylic_acid / self.salicylic_acid_molar_mass
+        acetic_anhydride_moles = self.acetic_anhydride / self.acetic_anhydride_molar_mass
+
+        # Determine the limiting reactant
+        limiting_moles = min(salicylic_acid_moles, acetic_anhydride_moles)
+
+        # Calculate moles of aspirin produced
+        aspirin_moles = limiting_moles * (self.catalyst_efficiency / 100)
+
+        # Convert moles to grams
+        aspirin_mass = aspirin_moles * self.aspirin_molar_mass
+
+        # Calculate unreacted materials
+        unreacted_salicylic_acid_moles = salicylic_acid_moles - limiting_moles
+        unreacted_acetic_anhydride_moles = acetic_anhydride_moles - limiting_moles
+        unreacted_salicylic_acid = unreacted_salicylic_acid_moles * self.salicylic_acid_molar_mass
+        unreacted_acetic_anhydride = unreacted_acetic_anhydride_moles * self.acetic_anhydride_molar_mass
+
+        # Calculate acetic acid byproduct
+        acetic_acid_moles = limiting_moles  # 1:1 ratio with aspirin
+        acetic_acid_mass = acetic_acid_moles * self.acetic_acid_molar_mass
+
+        return {
+            "aspirin_mass": aspirin_mass,
+            "unreacted_salicylic_acid": unreacted_salicylic_acid,
+            "unreacted_acetic_anhydride": unreacted_acetic_anhydride,
+            "acetic_acid_mass": acetic_acid_mass,
+        }
+
+    def process(self) -> Dict[str, float]:
+        """
+        Full process pipeline for manufacturing aspirin.
+
+        :return: Dictionary containing reaction results.
+        """
+        self.validate_inputs()
+        return self.calculate_yield()
+
+
+class BatchAspirinProcessor:
+    def __init__(self, batches: List[Dict[str, float]]):
+        """
+        Initialize the batch processor with multiple reactant sets.
+
+        :param batches: List of dictionaries containing reactant inputs.
+        """
+        self.batches = batches
+
+    def process_all(self) -> List[Dict[str, float]]:
+        """
+        Processes all batches of reactants.
+
+        :return: List of results for all batches.
+        """
+        results = []
+        for i, batch in enumerate(self.batches, start=1):
+            print(f"\nProcessing Batch {i}:")
+            try:
+                manufacturer = AspirinManufacture(
+                    salicylic_acid=batch["salicylic_acid"],
+                    acetic_anhydride=batch["acetic_anhydride"],
+                    catalyst_efficiency=batch["catalyst_efficiency"]
+                )
+                result = manufacturer.process()
+                result["batch_id"] = i
+                results.append(result)
+            except ValueError as e:
+                print(f"Error in Batch {i}: {e}")
+        return results
+
+    @staticmethod
+    def generate_report(results: List[Dict[str, float]]):
+        """
+        Prints a detailed report of batch processing results.
+
+        :param results: List of dictionaries containing reaction results.
+        """
+        print("\n--- Aspirin Batch Processing Report ---")
+        for result in results:
+            print(f"Batch {result['batch_id']}:")
+            print(f"  Aspirin Produced: {result['aspirin_mass']:.2f} g")
+            print(f"  Unreacted Salicylic Acid: {result['unreacted_salicylic_acid']:.2f} g")
+            print(f"  Unreacted Acetic Anhydride: {result['unreacted_acetic_anhydride']:.2f} g")
+            print(f"  Acetic Acid Byproduct: {result['acetic_acid_mass']:.2f} g")
+        print("--- End of Report ---")
+
+
+if __name__ == "__main__":
+    # Example batches defined as JSON data
+    batch_data = [
+        {"salicylic_acid": 100.0, "acetic_anhydride": 150.0, "catalyst_efficiency": 85.0},
+        {"salicylic_acid": 120.0, "acetic_anhydride": 130.0, "catalyst_efficiency": 90.0},
+        {"salicylic_acid": 50.0, "acetic_anhydride": 75.0, "catalyst_efficiency": 80.0}
+    ]
+
+    # Process the batch data
+    batch_processor = BatchAspirinProcessor(batches=batch_data)
+    batch_results = batch_processor.process_all()
+
+    # Generate the report
+    batch_processor.generate_report(batch_results)
+
+    # Optional: Save results to JSON
+    with open("aspirin_batch_results.json", "w") as f:
+        json.dump(batch_results, f, indent=4)
